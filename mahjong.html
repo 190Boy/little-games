@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>麻將連連看</title>
+    <style>
+        :root { --bg: #0f172a; --tile: #1e293b; --accent: #6366f1; }
+        body { background: var(--bg); color: white; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; margin: 0; padding: 20px; touch-action: manipulation; }
+        h1 { margin: 10px 0; font-size: 24px; color: var(--accent); }
+        #stats { margin-bottom: 10px; font-size: 18px; }
+        .grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; max-width: 400px; width: 100%; }
+        .tile { background: var(--tile); aspect-ratio: 3/4; border-radius: 8px; display: flex; justify-content: center; align-items: center; font-size: 28px; border: 2px solid transparent; transition: 0.2s; cursor: pointer; }
+        .tile.selected { border-color: var(--accent); background: #334155; transform: scale(1.05); }
+        .tile.empty { visibility: hidden; pointer-events: none; }
+        button { margin-top: 20px; padding: 12px 30px; border-radius: 50px; border: none; background: var(--accent); color: white; font-weight: bold; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>麻將連連看</h1>
+    <div id="stats">配對數: <span id="score">0</span> / 12</div>
+    <div class="grid" id="grid"></div>
+    <button onclick="initGame()">重新洗牌</button>
+
+    <script>
+        const emojis = ['🀀','🀁','🀂','🀃','🀄','🀅','🀆','🀇','🀈','🀉','🀊','🀋'];
+        let board = [], firstTile = null, score = 0;
+        const rows = 4, cols = 6;
+
+        function initGame() {
+            score = 0; document.getElementById('score').innerText = score;
+            const pairs = [...emojis, ...emojis].sort(() => Math.random() - 0.5);
+            board = [];
+            const grid = document.getElementById('grid');
+            grid.innerHTML = '';
+            for (let i = 0; i < rows * cols; i++) {
+                board.push(pairs[i]);
+                const div = document.createElement('div');
+                div.className = 'tile';
+                div.innerText = pairs[i];
+                div.dataset.index = i;
+                div.onclick = () => handleTileClick(i, div);
+                grid.appendChild(div);
+            }
+        }
+
+        function handleTileClick(index, el) {
+            if (el.classList.contains('empty')) return;
+            if (firstTile) {
+                if (firstTile.index === index) {
+                    el.classList.remove('selected');
+                    firstTile = null;
+                    return;
+                }
+                if (board[firstTile.index] === board[index]) {
+                    // 簡化版邏輯：只要花色相同即可消除 (連連看進階路徑判斷較複雜，此處為基礎版)
+                    el.classList.add('empty');
+                    firstTile.el.classList.add('empty');
+                    score++;
+                    document.getElementById('score').innerText = score;
+                    if (score === 12) alert('恭喜通關！');
+                } else {
+                    firstTile.el.classList.remove('selected');
+                }
+                firstTile = null;
+            } else {
+                firstTile = { index, el };
+                el.classList.add('selected');
+            }
+        }
+        initGame();
+    </script>
+</body>
+</html>
