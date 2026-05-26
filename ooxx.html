@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>OOXX 網頁小遊戲 (大戰 AI 版)</title>
+    <style>
+        body {
+            font-family: "Microsoft JhengHei", Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 50px 20px;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        #status {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            color: #0056b3;
+        }
+        .board {
+            display: grid;
+            grid-template-columns: repeat(3, 100px);
+            grid-template-rows: repeat(3, 100px);
+            gap: 5px;
+            background-color: #333;
+            padding: 5px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        .cell {
+            background-color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 48px;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: background-color 0.2s;
+        }
+        .cell:active {
+            background-color: #e0e0e0;
+        }
+        .cell.O {
+            color: #28a745;
+        }
+        .cell.X {
+            color: #dc3545;
+        }
+        button {
+            margin-top: 30px;
+            padding: 10px 30px;
+            font-size: 18px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>OOXX (與 AI 對戰)</h1>
+    <div id="status">輪到你了 (O)</div>
+    
+    <div class="board" id="board">
+        <div class="cell" data-index="0"></div>
+        <div class="cell" data-index="1"></div>
+        <div class="cell" data-index="2"></div>
+        <div class="cell" data-index="3"></div>
+        <div class="cell" data-index="4"></div>
+        <div class="cell" data-index="5"></div>
+        <div class="cell" data-index="6"></div>
+        <div class="cell" data-index="7"></div>
+        <div class="cell" data-index="8"></div>
+    </div>
+
+    <button onclick="restartGame()">重新開始</button>
+
+    <script>
+        const cells = document.querySelectorAll('.cell');
+        const statusText = document.getElementById('status');
+        let board = ['', '', '', '', '', '', '', '', ''];
+        let gameActive = true;
+        let isAiThinking = false; // 防止玩家在 AI 思考時點擊
+
+        const winningConditions = [
+            [0, 1, 2], [3, 4, 5], [6, 7, 8],
+            [0, 3, 6], [1, 4, 7], [2, 5, 8],
+            [0, 4, 8], [2, 4, 6]
+        ];
+
+        // 玩家點擊處理
+        function handleCellClick(e) {
+            const cell = e.target;
+            const index = parseInt(cell.getAttribute('data-index'));
+
+            // 如果格子有東西、遊戲結束、或是 AI 正在思考，就忽略點擊
+            if (board[index] !== '' || !gameActive || isAiThinking) {
+                return;
+            }
+
+            // 玩家下棋 (O)
+            makeMove(index, 'O');
+
+            if (gameActive) {
+                isAiThinking = true;
+                statusText.innerText = 'AI 思考中...';
+                statusText.style.color = '#dc3545';
+                
+                // 延遲 0.5 秒讓 AI 下棋，增加真實感
+                setTimeout(aiMove, 500);
+            }
+        }
+
+        // 執行下棋動作
+        function makeMove(index, player) {
+            board[index] = player;
+            const cell = document.querySelector(`.cell[data-index="${index}"]`);
+            cell.innerText = player;
+            cell.classList.add(player);
+            
+            checkWinOrDraw(player);
+        }
+
+        // AI 下棋邏輯
+        function aiMove() {
+            if (!gameActive) return;
+
+            let moveIndex = getBestAiMove();
+            makeMove(moveIndex, 'X');
+
+            if (gameActive) {
+                isAiThinking = false;
+                statusText.innerText = '輪到你了 (O)';
+                statusText.style.color = '#28a745';
+            }
+        }
+
+        // AI 決定最佳步數的簡單邏輯
+        function getBestAiMove() {
+            // 尋找空格
+            let emptySpots = [];
+            for (let i = 0; i < 9; i++) {
+                if (board[i] === '') emptySpots.push(i);
+            }
+
+            // 1. 先看 AI 能不能直接贏
+            for (let i of emptySpots) {
+                board[i] = 'X';
+                if (checkWinCondition('X')) {
+                    board[i] = ''; // 復原
+                    return i;
+                }
+                board[i] = ''; // 復原
+            }
+
+            // 2. 如果 AI 不能贏，看玩家下一步會不會贏，去阻擋他
+            for (let i of emptySpots) {
+                board[i] = 'O';
+                if (checkWinCondition('O')) {
+                    board[i] = ''; // 復原
+                    return i;
+                }
+                board[i] = ''; // 復原
+            }
+
+            // 3. 如果中間沒人下，優先下中間
+            if (board[4] === '') return 4;
+
+            // 4. 否則隨機挑一個空格下
+            let randomIndex = Math.floor(Math.random() * emptySpots.length);
+            return emptySpots[randomIndex];
+        }
+
+        // 內部檢查勝利條件 (給 AI 評估用)
+        function checkWinCondition(player) {
+            for (let i = 0; i < winningConditions.length; i++) {
+                const [a, b, c] = winningConditions[i];
+                if (board[a] === player && board[b] === player && board[c] === player) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // 檢查畫面上是否獲勝或平手
+        function checkWinOrDraw(player) {
+            if (checkWinCondition(player)) {
+                statusText.innerText = player === 'O' ? '恭喜你贏了！🎉' : 'AI 獲勝了！🤖';
+                statusText.style.color = player === 'O' ? '#28a745' : '#dc3545';
+                gameActive = false;
+                return;
+            }
+
+            if (!board.includes('')) {
+                statusText.innerText = '平手！雙方勢均力敵🤝';
+                statusText.style.color = '#333';
+                gameActive = false;
+                return;
+            }
+        }
+
+        // 重新開始遊戲
+        function restartGame() {
+            board = ['', '', '', '', '', '', '', '', ''];
+            gameActive = true;
+            isAiThinking = false;
+            statusText.innerText = '輪到你了 (O)';
+            statusText.style.color = '#28a745';
+            
+            cells.forEach(cell => {
+                cell.innerText = '';
+                cell.classList.remove('O', 'X');
+            });
+        }
+
+        cells.forEach(cell => cell.addEventListener('click', handleCellClick));
+    </script>
+
+</body>
+</html>
